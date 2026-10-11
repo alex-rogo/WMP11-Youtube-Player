@@ -41,6 +41,17 @@
     <section id="view-nowplaying" class="view">
       <div id="stage">
         <div id="stage-slot"></div>
+        <!-- WMP11 "Enhancements" pane: Color Chooser -->
+        <div id="enh" hidden>
+          <div id="enh-head"><span>Color Chooser</span>
+            <button id="enh-prev" title="Previous preset">&#9664;</button><span id="enh-preset"></span><button id="enh-next" title="Next preset">&#9654;</button>
+            <button id="enh-close" title="Close">&#10005;</button></div>
+          <div id="enh-body">
+            <label>Hue <input id="enh-hue" type="range" min="-180" max="180" step="1"></label>
+            <label>Saturation <input id="enh-sat" type="range" min="0" max="200" step="1"></label>
+            <button id="enh-reset">Reset</button>
+          </div>
+        </div>
         <div id="stage-empty">
           <div class="empty-title">Nothing is playing</div>
           <div class="empty-sub">Paste a YouTube link in the box above, drop one onto this window,<br>or open <a href="#" data-goto="guide">Media Guide</a> to browse YouTube.</div>

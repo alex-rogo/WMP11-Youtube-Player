@@ -22,8 +22,10 @@ const S = {
   playlists: [],        // [{name, items}]
   history: [],
   captions: false,      // YouTube remembers CC per account; we set it per video
+  hue: 0,               // Color Chooser: frame hue shift (degrees) and saturation (%)
+  sat: 100,
 };
-const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history', 'captions'];
+const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history', 'captions', 'hue', 'sat'];
 let saveTimer = 0;
 function save() {
   clearTimeout(saveTimer);
@@ -1192,6 +1194,7 @@ function tabMenu(tab) {
     showMenu(x, y, [
       { label: 'Show List Pane', checked: S.listPane, action: toggleListPane },
       { label: 'Captions', checked: S.captions, action: toggleCaptions },
+      { label: 'Color Chooser', checked: !$('#enh').hidden, action: () => showColorChooser($('#enh').hidden) },
       { label: 'Full Screen', action: () => host.win('fullscreen') },
       '-',
       { label: 'Save List As…', action: saveQueueAsPlaylist },
@@ -1220,6 +1223,39 @@ function tabMenu(tab) {
   }
 }
 $('[data-goto=guide]').addEventListener('click', (e) => { e.preventDefault(); showView('guide'); });
+
+// ---------------------------------------------------------------------------------------------
+// Color Chooser (WMP11 Now Playing > Enhancements): hue/saturation shift of the frame.
+// ---------------------------------------------------------------------------------------------
+const COLOR_PRESETS = [
+  ['Default', 0, 100], ['Sky', -25, 120], ['Teal', -50, 110], ['Green', -95, 100], ['Lime', -130, 115],
+  ['Amber', 165, 120], ['Red', 130, 130], ['Pink', 95, 110], ['Purple', 40, 110], ['Graphite', 0, 0],
+];
+function applyFrameColor() {
+  const f = S.hue || S.sat !== 100 ? `hue-rotate(${S.hue}deg) saturate(${S.sat}%)` : 'none';
+  app.style.setProperty('--frame-filter', f);
+  $('#enh-hue').value = S.hue; $('#enh-sat').value = S.sat;
+  const p = COLOR_PRESETS.find((c) => c[1] === S.hue && c[2] === S.sat);
+  $('#enh-preset').textContent = p ? p[0] : 'Custom';
+}
+function setFrameColor(hue, sat) { S.hue = +hue; S.sat = +sat; applyFrameColor(); save(); }
+function showColorChooser(on) {
+  $('#enh').hidden = !on;
+  app.classList.toggle('enh-open', on);
+  if (on && view !== 'nowplaying') showView('nowplaying');
+  requestAnimationFrame(placePlayer);
+}
+function stepPreset(dir) {
+  const i = COLOR_PRESETS.findIndex((c) => c[1] === S.hue && c[2] === S.sat);
+  const n = COLOR_PRESETS[(i + dir + COLOR_PRESETS.length) % COLOR_PRESETS.length];
+  setFrameColor(n[1], n[2]);
+}
+$('#enh-hue').addEventListener('input', (e) => setFrameColor(e.target.value, S.sat));
+$('#enh-sat').addEventListener('input', (e) => setFrameColor(S.hue, e.target.value));
+$('#enh-reset').addEventListener('click', () => setFrameColor(0, 100));
+$('#enh-prev').addEventListener('click', () => stepPreset(-1));
+$('#enh-next').addEventListener('click', () => stepPreset(1));
+$('#enh-close').addEventListener('click', () => showColorChooser(false));
 
 function toggleListPane() {
   S.listPane = !S.listPane;
@@ -1415,6 +1451,7 @@ function toast(msg) {
   app.classList.toggle('no-listpane', !S.listPane);
   $('#btn-listpane').classList.toggle('on', S.listPane);
   setupSliders();
+  applyFrameColor();
   renderQueue(); renderNav(); updateNowPlayingMeta();
   if (current()) { setHasMedia(); loadIntoPlayer(current(), false, S.position || 0); }
   await showView('nowplaying');
