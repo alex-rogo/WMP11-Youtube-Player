@@ -22,11 +22,10 @@ const S = {
   playlists: [],        // [{name, items}]
   history: [],
   captions: false,      // YouTube remembers CC per account; we set it per video
-  visualizer: true,     // frequency bars over the bottom of the video (drawn in player-preload.js)
   hue: 0,               // Color Chooser: frame hue shift (degrees) and saturation (%)
   sat: 100,
 };
-const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history', 'captions', 'visualizer', 'hue', 'sat'];
+const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history', 'captions', 'hue', 'sat'];
 let saveTimer = 0;
 function save() {
   clearTimeout(saveTimer);
@@ -275,7 +274,7 @@ setInterval(async () => {
   if (st.id && st.id !== item.id && Date.now() - (page.switchedAt || 0) < 6000) return;
   page.st = st; page.ready = true;
   if (!page.volApplied) { page.volApplied = true; pageCall(`setVolume(${S.volume})`); pageCall(S.muted ? 'mute()' : 'unMute()'); }
-  if (!page.ccApplied && !st.ad) { page.ccApplied = true; applyCaptions(); applyVisualizer(); }
+  if (!page.ccApplied && !st.ad) { page.ccApplied = true; applyCaptions(); }
   if (st.err) {
     setCover(false);
     if (page.lastState !== 'err') { page.lastState = 'err'; onPageError(st.err); }
@@ -323,14 +322,6 @@ async function applyCaptions() {
   pageCall(S.captions ? "loadModule('captions')" : "unloadModule('captions')");
   if (ccCssKey) { page.wv.removeInsertedCSS(ccCssKey).catch(() => {}); ccCssKey = null; }
   if (!S.captions) ccCssKey = await page.wv.insertCSS(HIDE_CC).catch(() => null);
-}
-function applyVisualizer() {
-  if (page.wv && page.domReady) page.wv.executeJavaScript(`window.__wmpVis && window.__wmpVis.set(${S.visualizer})`).catch(() => {});
-}
-function toggleVisualizer() {
-  S.visualizer = !S.visualizer; save();
-  applyVisualizer();
-  toast(S.visualizer ? 'Visualizer on' : 'Visualizer off');
 }
 function toggleCaptions() {
   S.captions = !S.captions; save();
@@ -1256,7 +1247,6 @@ function tabMenu(tab) {
   if (v === 'nowplaying') {
     showMenu(x, y, [
       { label: 'Show List Pane', checked: S.listPane, action: toggleListPane },
-      { label: 'Visualizer', checked: S.visualizer, action: toggleVisualizer },
       { label: 'Captions', checked: S.captions, action: toggleCaptions },
       { label: 'Color Chooser', checked: !$('#enh').hidden, action: () => showColorChooser($('#enh').hidden) },
       { label: 'Full Screen', action: () => host.win('fullscreen') },
