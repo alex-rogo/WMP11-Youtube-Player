@@ -21,8 +21,9 @@ const S = {
   position: 0,
   playlists: [],        // [{name, items}]
   history: [],
+  captions: false,      // YouTube remembers CC per account; we set it per video
 };
-const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history'];
+const PERSIST = ['queue', 'index', 'shuffle', 'repeat', 'volume', 'muted', 'listPane', 'timeMode', 'position', 'playlists', 'history', 'captions'];
 let saveTimer = 0;
 function save() {
   clearTimeout(saveTimer);
@@ -234,7 +235,7 @@ function loadIntoPlayer(item, autoplay, start = 0) {
     return;
   }
   page.loadedId = item.id;
-  Object.assign(page, { ready: false, st: {}, lastState: null, pauseOnStart: !autoplay, volApplied: false, shown: 0 });
+  Object.assign(page, { ready: false, st: {}, lastState: null, pauseOnStart: !autoplay, volApplied: false, ccApplied: false, shown: 0 });
   setCover(true);
   if (autoplay) setStatus('Opening media…');
   const url = `https://www.youtube.com/watch?v=${item.id}` + (start ? `&t=${Math.floor(start)}s` : '');
@@ -251,6 +252,7 @@ setInterval(async () => {
   page.st = st; page.ready = true;
   const item = current();
   if (!page.volApplied) { page.volApplied = true; pageCall(`setVolume(${S.volume})`); pageCall(S.muted ? 'mute()' : 'unMute()'); }
+  if (!page.ccApplied && !st.ad) { page.ccApplied = true; applyCaptions(); }
   if (st.err) {
     setCover(false);
     if (page.lastState !== 'err') { page.lastState = 'err'; onPageError(st.err); }
@@ -258,7 +260,12 @@ setInterval(async () => {
   }
   // Lift the cover once the video has been laid out at full size for a moment.
   if ((st.s === YTS.PLAYING || st.s === YTS.PAUSED || st.ad) && st.vh > 0 && ++page.shown === 2) setCover(false);
-  if (!!st.ad !== app.classList.contains('page-ad')) { app.classList.toggle('page-ad', !!st.ad); setStatus(st.ad ? 'Advertisement' : ''); }
+  if (st.ad) skipAd();
+  if (!!st.ad !== app.classList.contains('page-ad')) {
+    app.classList.toggle('page-ad', !!st.ad);
+    setStatus(st.ad ? 'Skipping advertisement…' : '');
+    if (!st.ad) restoreSound(); // skipAd() muted the video element directly
+  }
   let s = st.s;
   // YouTube moved on to a video of its own choosing (its autoplay): treat that as the end of ours.
   if (!st.ad && st.id && st.id !== item.id && s === YTS.PLAYING) { pageCall('pauseVideo()'); s = YTS.ENDED; }
@@ -267,6 +274,38 @@ setInterval(async () => {
   if (s === YTS.PLAYING && statusMsg === 'Opening media…') setStatus('');
   if (s !== page.lastState) { page.lastState = s; onPlayerState(s); }
 }, 250);
+
+// Backup for ads that still get through: silence, jump to the end, and press Skip if offered.
+const SKIP_AD = `(() => {
+  const p = document.getElementById('movie_player');
+  if (!p || !p.classList.contains('ad-showing')) return;
+  const v = p.querySelector('video');
+  const skip = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+  if (skip) skip.click();
+  if (v) { v.muted = true; if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration; }
+})()`;
+function skipAd() { if (page.wv && page.domReady) page.wv.executeJavaScript(SKIP_AD).catch(() => {}); }
+function restoreSound() {
+  if (!page.wv || !page.domReady) return;
+  page.wv.executeJavaScript(`(() => { const v = document.querySelector('#movie_player video'); if (v) v.muted = ${S.muted}; })()`).catch(() => {});
+  pageCall(`setVolume(${S.volume})`); pageCall(S.muted ? 'mute()' : 'unMute()');
+}
+
+// Captions: the player's captions module is loaded/unloaded per video, and while they're off a
+// style rule also hides the caption layer in case YouTube turns them back on mid-video.
+const HIDE_CC = '.ytp-caption-window-container { display: none !important; }';
+let ccCssKey = null;
+async function applyCaptions() {
+  if (!page.wv || !page.domReady) return;
+  pageCall(S.captions ? "loadModule('captions')" : "unloadModule('captions')");
+  if (ccCssKey) { page.wv.removeInsertedCSS(ccCssKey).catch(() => {}); ccCssKey = null; }
+  if (!S.captions) ccCssKey = await page.wv.insertCSS(HIDE_CC).catch(() => null);
+}
+function toggleCaptions() {
+  S.captions = !S.captions; save();
+  applyCaptions();
+  toast(S.captions ? 'Captions on' : 'Captions off');
+}
 
 function onPageError(msg) {
   const item = current();
@@ -1152,6 +1191,7 @@ function tabMenu(tab) {
   if (v === 'nowplaying') {
     showMenu(x, y, [
       { label: 'Show List Pane', checked: S.listPane, action: toggleListPane },
+      { label: 'Captions', checked: S.captions, action: toggleCaptions },
       { label: 'Full Screen', action: () => host.win('fullscreen') },
       '-',
       { label: 'Save List As…', action: saveQueueAsPlaylist },

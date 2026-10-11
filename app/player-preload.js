@@ -30,3 +30,24 @@ else new MutationObserver((_, obs) => { if (document.documentElement) { obs.disc
 
 // YouTube sizes its player from window size; nudge it once the real layout exists.
 window.addEventListener('DOMContentLoaded', () => window.dispatchEvent(new Event('resize')));
+
+// Ad schedule removal (the technique uBlock Origin uses on YouTube): strip the ad fields from the
+// player's data before the player reads them. It has to run in the page's own JavaScript world, and
+// webFrame.executeJavaScript is used because YouTube's Trusted Types/CSP block injected <script> tags.
+function pruneAds() {
+  const KEYS = ['adPlacements', 'adSlots', 'playerAds', 'adBreakHeartbeatParams'];
+  const clean = (o) => {
+    if (o && typeof o === 'object') {
+      for (const k of KEYS) if (k in o) delete o[k];
+      if (o.playerResponse) clean(o.playerResponse);
+    }
+    return o;
+  };
+  const parse = JSON.parse;
+  JSON.parse = function (...args) { const r = parse.apply(this, args); try { clean(r); } catch (e) { /* not ours */ } return r; };
+  const json = Response.prototype.json;
+  Response.prototype.json = function () { return json.call(this).then((r) => { try { clean(r); } catch (e) { /* not ours */ } return r; }); };
+}
+try {
+  require('electron').webFrame.executeJavaScript(`(${pruneAds.toString()})()`);
+} catch (e) { /* ad removal unavailable; the app still auto-skips ads */ }
