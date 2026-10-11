@@ -14,6 +14,8 @@ const MIME = {
 };
 
 let win;
+const T0 = Date.now();
+const tlog = (m) => { if (process.env.WMP_DEBUG) console.log(`[startup +${Date.now() - T0}ms] ${m}`); };
 
 // Keep our data apart from anything belonging to the real Windows Media Player.
 // WMP_PROFILE (testing): use a separate data folder, so a test run neither shares the user's
@@ -74,7 +76,7 @@ function createWindow() {
   });
   if (saved.maximized) win.maximize();
   win.loadURL(`http://127.0.0.1:${PORT}/`);
-  win.once('ready-to-show', () => { win.show(); setThumbar(false); });
+  win.once('ready-to-show', () => { tlog('window shown'); win.show(); setThumbar(false); });
 
   // isFullScreen() can still be stale inside the full-screen events on frameless windows, so the
   // events report their own state.
@@ -183,11 +185,13 @@ async function enableAdblock(sess) {
 }
 
 app.whenReady().then(async () => {
+  tlog('electron ready');
   app.setAppUserModelId('WMP11.YouTube');
   // youtube.com inside the Media Guide tab: present as plain Chrome so the site serves its normal UI.
   const yt = session.fromPartition('persist:youtube');
   yt.setUserAgent(yt.getUserAgent().replace(/\s(Electron|wmp11-youtube)\/\S+/g, ''));
   await enableAdblock(yt);
+  tlog('adblock ready');
 
   try { await startServer(); } catch (e) {
     console.error(`Could not listen on 127.0.0.1:${PORT}:`, e.message);
