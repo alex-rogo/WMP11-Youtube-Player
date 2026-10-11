@@ -1,0 +1,55 @@
+{
+  "name": "wmp11-youtube",
+  "productName": "Windows Media Player",
+  "version": "1.0.0",
+  "description": "A WMP11-skinned desktop player for YouTube",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "skin": "python -I ../tools/build_skin.py",
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "WMP11.YouTube",
+    "productName": "WMP YouTube Player",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "webview-preload.js",
+      "player-preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "renderer/skin/app.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WMP YouTube Player",
+      "artifactName": "WMP-YouTube-Player-Setup.exe"
+    },
+    "portable": {
+      "artifactName": "WMP-YouTube-Player-Portable.exe"
+    }
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.5.0"
+  }
+}

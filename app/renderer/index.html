@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; img-src 'self' data: https://i.ytimg.com https://*.ggpht.com; style-src 'self' 'unsafe-inline'; connect-src 'self'">
+<title>Windows Media Player</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="view-nowplaying">
+
+  <!-- Title bar -->
+  <header id="titlebar">
+    <div class="ninegrid" id="titlebar-bg"></div>
+    <img id="logo" src="skin/logo.png" alt="" draggable="false">
+    <div id="caption">Windows Media Player</div>
+    <div id="caption-time"></div>
+    <div id="capbtns"></div>
+  </header>
+
+  <!-- Task bar: back/forward + tabs + search -->
+  <nav id="taskbar">
+    <div class="ninegrid" id="taskbar-bg"></div>
+    <div id="navbtns"></div>
+    <div id="tabs">
+      <div class="tab" data-view="nowplaying"><span class="tab-cap">Now Playing</span><span class="tab-drop"></span></div>
+      <div class="tab" data-view="library"><span class="tab-cap">Library</span><span class="tab-drop"></span></div>
+      <div class="tab" data-view="guide"><span class="tab-cap">Media Guide</span><span class="tab-drop"></span></div>
+    </div>
+    <form id="search">
+      <input id="search-input" type="text" spellcheck="false" autocomplete="off" placeholder="Search YouTube or paste a link">
+      <button type="submit" id="search-go" title="Search" aria-label="Search"></button>
+    </form>
+  </nav>
+
+  <div id="side-left" class="ninegrid"></div>
+  <div id="side-right" class="ninegrid"></div>
+
+  <!-- Content -->
+  <main id="content">
+    <section id="view-nowplaying" class="view">
+      <div id="stage">
+        <div id="stage-slot"></div>
+        <div id="stage-empty">
+          <div class="empty-title">Nothing is playing</div>
+          <div class="empty-sub">Paste a YouTube link in the box above, drop one onto this window,<br>or open <a href="#" data-goto="guide">Media Guide</a> to browse YouTube.</div>
+        </div>
+      </div>
+      <aside id="listpane">
+        <div id="lp-head">
+          <div id="lp-art"><img id="lp-art-img" alt=""></div>
+          <div id="lp-meta"><div id="lp-title"></div><div id="lp-channel"></div></div>
+        </div>
+        <div id="lp-bar"><span>Now Playing</span><button id="lp-clear" title="Clear list">Clear</button><button id="lp-save" title="Save list as playlist">Save</button></div>
+        <ol id="lp-list" class="tracklist"></ol>
+        <div id="lp-foot"></div>
+      </aside>
+    </section>
+
+    <section id="view-library" class="view">
+      <aside id="navpane">
+        <div class="nav-group">Library</div>
+        <div class="nav-item" data-lib="queue">Now Playing</div>
+        <div class="nav-item" data-lib="history">Recently Played</div>
+        <div class="nav-group">Playlists <button id="new-playlist" title="Create playlist">+</button></div>
+        <div id="nav-playlists"></div>
+      </aside>
+      <div id="libmain">
+        <div id="lib-head">
+          <div id="lib-title"></div>
+          <div id="lib-actions">
+            <button data-act="play">Play all</button>
+            <button data-act="enqueue">Add to Now Playing</button>
+            <button data-act="rename">Rename</button>
+            <button data-act="delete">Delete playlist</button>
+          </div>
+        </div>
+        <div id="lib-cols"><span class="c-num">#</span><span class="c-title">Title</span><span class="c-chan">Channel</span><span class="c-len">Length</span></div>
+        <ol id="lib-list" class="tracklist rows"></ol>
+        <div id="lib-empty"></div>
+      </div>
+    </section>
+
+    <section id="view-guide" class="view">
+      <div id="guide-host"></div>
+    </section>
+
+    <div id="dock" title="Click to go to Now Playing"><div id="dock-slot"></div><div id="dock-bar"><span id="dock-title"></span><button id="dock-expand" title="Go to Now Playing">&#x2197;</button></div></div>
+  </main>
+
+  <!-- Bottom: seek + marquee + transport + status -->
+  <footer id="bottom">
+    <div class="ninegrid" id="bottom-bg"></div>
+    <div id="seek" class="slider"><div class="ninegrid" id="seek-bg"></div><div id="seek-fill"></div><img id="seek-thumb" src="skin/seek_thumb.png" alt="" draggable="false"></div>
+    <div id="marquee">
+      <img id="mq-art" alt="">
+      <div id="mq-text"><div id="mq-line1"></div><div id="mq-line2"></div></div>
+      <div id="mq-time" title="Click to switch between elapsed and remaining time"></div>
+    </div>
+    <div id="transport">
+      <div id="transport-inner">
+        <div id="btn-shuffle" class="round"></div>
+        <div id="btn-repeat" class="round"></div>
+        <div id="sep"></div>
+        <img id="play-glow" src="skin/glow.png" alt="" draggable="false">
+        <div id="tgroup"></div>
+        <div id="btn-mute" class="round"></div>
+        <div id="btn-split"></div>
+        <div id="volume" class="slider"><img id="vol-track" src="skin/vol_track.png" alt="" draggable="false"><img id="vol-thumb" src="skin/vol_thumb.png" alt="" draggable="false"></div>
+      </div>
+    </div>
+    <div id="volpop"><div id="volume2" class="slider"><img id="vol-track2" src="skin/vol_track.png" alt="" draggable="false"><img id="vol-thumb2" src="skin/vol_thumb.png" alt="" draggable="false"></div></div>
+    <div id="status"><span id="status-text"></span></div>
+    <div id="modes">
+      <button id="btn-listpane" class="mode" title="Show/hide list pane (Ctrl+L)"><svg viewBox="0 0 16 16"><path d="M2 3h12v2H2zm0 4h12v2H2zm0 4h8v2H2z"/></svg></button>
+      <button id="btn-full" class="mode" title="View full screen (Alt+Enter)"><svg viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zm9 0h5v5h-2V3h-3zM1 10h2v3h3v2H1zm12 0h2v5h-5v-2h3z"/></svg></button>
+    </div>
+  </footer>
+</div>
+
+<!-- The YouTube player (a webview) lives here permanently (moving it in the DOM reloads it);
+     it is positioned over #stage-slot or #dock-slot. #yt-helper holds hidden pages that read playlists. -->
+<div id="player-frame"></div>
+<div id="yt-helper"></div>
+<div id="menu" class="menu" hidden></div>
+<div id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

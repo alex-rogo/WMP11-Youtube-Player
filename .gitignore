@@ -1,0 +1,16 @@
+# Dependencies and build output (regenerable: npm install / npm run dist)
+node_modules/
+app/dist/
+
+# Microsoft's resources from the user's own WMP installers. Kept local, never committed:
+# extracted/ is produced from the installers; app/renderer/skin/ is generated from it by `npm run skin`.
+extracted/
+app/renderer/skin/
+
+# Windows reserved-name strays from test runs
+NUL
+NUL.*
+*.log
+
+# Python bytecode
+__pycache__/
