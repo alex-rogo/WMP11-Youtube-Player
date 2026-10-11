@@ -28,7 +28,7 @@
       "renderer/**/*",
       "package.json"
     ],
-    "asar": false,
+    "asar": true,
     "win": {
       "target": [
         "nsis",
@@ -47,7 +47,10 @@
     },
     "portable": {
       "artifactName": "WMP-YouTube-Player-Portable.exe"
-    }
+    },
+    "electronLanguages": [
+      "en-US"
+    ]
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "^2.5.0"
