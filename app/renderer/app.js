@@ -215,7 +215,7 @@ function ensurePageView() {
   const cover = document.createElement('div');
   cover.id = 'player-cover';
   $('#player-frame').append(wv, cover);
-  wv.addEventListener('dom-ready', () => { page.domReady = true; });
+  wv.addEventListener('dom-ready', () => { page.domReady = true; page.navigating = false; });
   page.wv = wv;
   return wv;
 }
@@ -234,23 +234,43 @@ function loadIntoPlayer(item, autoplay, start = 0) {
     if (autoplay) pageCall('playVideo()');
     return;
   }
+  const reuse = page.domReady && page.onWatch && page.ready && !page.st.err;
   page.loadedId = item.id;
-  Object.assign(page, { ready: false, st: {}, lastState: null, pauseOnStart: !autoplay, volApplied: false, ccApplied: false, shown: 0 });
+  Object.assign(page, { st: {}, lastState: null, pauseOnStart: !autoplay, volApplied: false, ccApplied: false, switchedAt: Date.now() });
   setCover(true);
   if (autoplay) setStatus('Opening media…');
+  if (reuse) {
+    // The watch page is already open: have its player switch videos instead of reloading the
+    // whole page (several seconds faster). Its status is ignored until it reports the new video.
+    const opts = `{ videoId: '${item.id}', startSeconds: ${Math.floor(+start || 0)} }`;
+    pageCall(autoplay ? `loadVideoById(${opts})` : `cueVideoById(${opts})`);
+    return;
+  }
+  page.ready = false;
+  page.navigating = true;
+  page.onWatch = true;
   const url = `https://www.youtube.com/watch?v=${item.id}` + (start ? `&t=${Math.floor(start)}s` : '');
   const go = () => wv.loadURL(url).catch(() => {});
   page.domReady ? go() : wv.addEventListener('dom-ready', go, { once: true }); // webview API needs its first dom-ready
 }
 
+// With nothing queued at startup, open youtube.com in the background so YouTube's player code is
+// already cached and connected when the first video is played.
+function warmUpPlayer() {
+  const wv = ensurePageView();
+  const go = () => { page.navigating = true; wv.loadURL('https://www.youtube.com/').catch(() => {}); };
+  page.domReady ? go() : wv.addEventListener('dom-ready', go, { once: true });
+}
+
 setInterval(async () => {
-  if (!page.domReady || !current() || page.polling || page.wv.isLoading()) return;
+  if (!page.domReady || !current() || page.polling || page.navigating) return;
   let st;
   page.polling = true;
   try { st = await page.wv.executeJavaScript(PAGE_POLL); } catch { return; } finally { page.polling = false; }
   if (!st) return;
-  page.st = st; page.ready = true;
   const item = current();
+  if (st.id && st.id !== item.id && Date.now() - (page.switchedAt || 0) < 6000) return;
+  page.st = st; page.ready = true;
   if (!page.volApplied) { page.volApplied = true; pageCall(`setVolume(${S.volume})`); pageCall(S.muted ? 'mute()' : 'unMute()'); }
   if (!page.ccApplied && !st.ad) { page.ccApplied = true; applyCaptions(); }
   if (st.err) {
@@ -259,7 +279,7 @@ setInterval(async () => {
     return;
   }
   // Lift the cover once the video has been laid out at full size for a moment.
-  if ((st.s === YTS.PLAYING || st.s === YTS.PAUSED || st.ad) && st.vh > 0 && ++page.shown === 2) setCover(false);
+  if ((st.s === YTS.PLAYING || st.s === YTS.PAUSED || st.s === YTS.CUED || st.ad) && st.vh > 0) setCover(false);
   if (st.ad) skipAd();
   if (!!st.ad !== app.classList.contains('page-ad')) {
     app.classList.toggle('page-ad', !!st.ad);
@@ -273,7 +293,7 @@ setInterval(async () => {
   if (s === YTS.ENDED && st.ad) return;
   if (s === YTS.PLAYING && statusMsg === 'Opening media…') setStatus('');
   if (s !== page.lastState) { page.lastState = s; onPlayerState(s); }
-}, 250);
+}, 150);
 
 // Backup for ads that still get through: silence, jump to the end, and press Skip if offered.
 const SKIP_AD = `(() => {
@@ -611,16 +631,35 @@ async function readPlaylist(listId, startId) {
 
 /** Load a YouTube playlist. replace: make it the Now Playing list (like opening a playlist in WMP). */
 async function importPlaylist(listId, startId, playNow = true, { replace = playNow } = {}) {
-  setStatus('Loading playlist…');
   toast('Loading playlist…');
+  // The link names a song: start it right away and fill in the rest of the list while it loads.
+  const early = replace && playNow && !!startId;
+  if (early) {
+    if (P.ready()) P.stopVideo();
+    S.queue = [{ id: startId, title: '', channel: '', dur: 0 }]; S.index = -1; shuffleSeen.clear(); lpSel.clear();
+    lookupMeta(S.queue[0]);
+    playIndex(0); showView('nowplaying');
+  }
+  setStatus('Loading playlist…');
   const rows = await readPlaylist(listId, startId);
   setStatus('');
   if (!rows.length) {
-    if (startId) { addItems([{ id: startId }], { playNow }); toast("Couldn't read that playlist — added the single video instead."); }
+    if (early) toast("Couldn't read that playlist — playing the single video instead.");
+    else if (startId) { addItems([{ id: startId }], { playNow }); toast("Couldn't read that playlist — added the single video instead."); }
     else toast("Couldn't read that playlist. It may be private (sign in on the Media Guide tab).");
     return;
   }
   const start = startId ? Math.max(0, rows.findIndex((r) => r.id === startId)) : 0;
+  if (early && current() && current().id === startId) {
+    // Swap in the full list around the song that is already playing; no reload.
+    const playing = current();
+    S.queue = rows.map((r) => (r.id === startId ? Object.assign(playing, { title: playing.title || r.title, channel: playing.channel || r.channel, dur: playing.dur || r.dur }) : { id: r.id, title: r.title, channel: r.channel, dur: r.dur }));
+    S.index = start;
+    if (!S.listPane) toggleListPane();
+    renderQueue(); renderLibrary(); updateNowPlayingMeta(); save();
+    toast(`Loaded ${rows.length} videos from the playlist`);
+    return;
+  }
   if (replace) {
     if (P.ready()) P.stopVideo();
     S.queue = []; S.index = -1; shuffleSeen.clear(); lpSel.clear();
@@ -1431,7 +1470,7 @@ function toast(msg) {
   $('#btn-listpane').classList.toggle('on', S.listPane);
   setupSliders();
   renderQueue(); renderNav(); updateNowPlayingMeta();
-  if (current()) { setHasMedia(); loadIntoPlayer(current(), false, S.position || 0); }
+  if (current()) { setHasMedia(); loadIntoPlayer(current(), false, S.position || 0); } else warmUpPlayer();
   await showView('nowplaying');
   layout();
   updatePlayGlyph(); updateStatus();
