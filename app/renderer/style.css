@@ -159,7 +159,7 @@ img { -webkit-user-drag: none; }
 #seek { left: 5px; right: 5px; top: 2px; height: 9px; z-index: 30; }
 #seek-bg { inset: 0; border-width: 0 20px; border-image: url(skin/seek_bg.png) 0 20 fill stretch; }
 #seek-fill { position: absolute; left: 0; top: 0; height: 9px; width: 0; border-style: solid; border-width: 0 18px 0 18px; border-image: url(skin/seek_fill.png) 0 18 fill repeat; min-width: 36px; display: none; }
-#seek-thumb { position: absolute; top: 0; left: 0; margin-left: -10px; display: none; }
+#seek-thumb { position: absolute; top: 0; left: 0; display: none; }
 .has-media #seek-fill, .has-media #seek-thumb { display: block; }
 #seek.zero #seek-fill { display: none; }
 

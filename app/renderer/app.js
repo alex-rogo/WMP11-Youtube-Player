@@ -751,12 +751,20 @@ function makeSlider(el, { onDrag, onCommit, thumb, images }) {
 }
 
 let seekSlider;
+let seekF = 0;
 function setSeekVisual(f) {
-  const seek = $('#seek'), w = seek.clientWidth, x = Math.round(f * w);
-  $('#seek-thumb').style.left = x + 'px';
-  $('#seek-fill').style.width = Math.max(36, x + 4) + 'px';
-  seek.classList.toggle('zero', x < 2);
+  seekF = f;
+  const seek = $('#seek'), thumb = $('#seek-thumb'), w = seek.clientWidth;
+  const tw = thumb.naturalWidth || 20, th = thumb.naturalHeight || 10;
+  // Keep the whole thumb inside the bar (as WMP does) and centre it vertically; the normal and
+  // hover thumb images are different sizes, so this is recomputed whenever the image changes.
+  const x = Math.round(Math.min(w - tw, Math.max(0, f * w - tw / 2)));
+  thumb.style.left = x + 'px';
+  thumb.style.top = Math.round((seek.clientHeight - th) / 2) + 'px';
+  $('#seek-fill').style.width = Math.max(36, x + tw / 2 + 2) + 'px';
+  seek.classList.toggle('zero', f * w < 2);
 }
+$('#seek-thumb').addEventListener('load', () => setSeekVisual(seekF));
 function setupSliders() {
   seekSlider = makeSlider($('#seek'), {
     thumb: $('#seek-thumb'), images: { normal: 'seek_thumb', hover: 'seek_thumb_hover', down: 'seek_thumb_down' },
@@ -853,11 +861,18 @@ function listSelection(ol, set, e, i) {
 }
 
 const lpList = $('#lp-list');
+// Double-click a row to play it. Selecting redraws the list on every mousedown, so the browser's own
+// dblclick never reaches the row; two presses on the same row in quick succession are detected instead.
+let lpPress = null;
 lpList.addEventListener('mousedown', (e) => {
   const li = e.target.closest('li'); if (!li) return;
-  listSelection(lpList, lpSel, e, +li.dataset.i); renderQueue();
+  const i = +li.dataset.i, now = Date.now();
+  const plain = e.button === 0 && !e.ctrlKey && !e.shiftKey;
+  const double = plain && lpPress && lpPress.i === i && now - lpPress.t < 500;
+  lpPress = plain && !double ? { i, t: now } : null;
+  listSelection(lpList, lpSel, e, i); renderQueue();
+  if (double) { if (i !== S.index) playIndex(i); else if (!isPlaying()) togglePlay(); }
 });
-lpList.addEventListener('dblclick', (e) => { const li = e.target.closest('li'); if (li) playIndex(+li.dataset.i); });
 lpList.addEventListener('contextmenu', (e) => {
   const li = e.target.closest('li'); if (!li) return;
   e.preventDefault();
