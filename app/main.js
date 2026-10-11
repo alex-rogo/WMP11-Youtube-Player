@@ -16,7 +16,9 @@ const MIME = {
 let win;
 
 // Keep our data apart from anything belonging to the real Windows Media Player.
-app.setPath('userData', path.join(app.getPath('appData'), 'WMP11-YouTube'));
+// WMP_PROFILE (testing): use a separate data folder, so a test run neither shares the user's
+// library nor collides with their running copy through the single-instance lock.
+app.setPath('userData', process.env.WMP_PROFILE || path.join(app.getPath('appData'), 'WMP11-YouTube'));
 
 // YouTube's embedded player refuses to run from file:// pages, so the UI is served from loopback.
 function startServer() {
