@@ -47,6 +47,10 @@ function pruneAds() {
   JSON.parse = function (...args) { const r = parse.apply(this, args); try { clean(r); } catch (e) { /* not ours */ } return r; };
   const json = Response.prototype.json;
   Response.prototype.json = function () { return json.call(this).then((r) => { try { clean(r); } catch (e) { /* not ours */ } return r; }); };
+  // The first video's ad schedule is inline in the page (var ytInitialPlayerResponse = {...}),
+  // not parsed from JSON, so intercept that assignment too.
+  let initial;
+  Object.defineProperty(window, 'ytInitialPlayerResponse', { configurable: true, get: () => initial, set: (v) => { initial = clean(v); } });
 }
 try {
   require('electron').webFrame.executeJavaScript(`(${pruneAds.toString()})()`);
